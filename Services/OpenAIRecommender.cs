@@ -1,6 +1,6 @@
 using System.Text.Json;
-using CryptoScout.Models;
 using OpenAI.Chat;
+using CryptoScout.Models;
 
 namespace CryptoScout.Services;
 
@@ -17,11 +17,8 @@ public sealed class OpenAIRecommender(ChatClient chat) : IOpenAIRecommender
             .Where(a => a.PriceChangePercentage1y is not null)
             .OrderByDescending(a => a.PriceChangePercentage1y)
             .Take(20)
-            .Select(a => new
-            {
-                a.Name,
-                a.Symbol,
-                a.MarketCapRank,
+            .Select(a => new {
+                a.Name, a.Symbol, a.MarketCapRank,
                 Price = a.CurrentPrice,
                 Change1yPct = a.PriceChangePercentage1y
             });
@@ -52,30 +49,21 @@ public sealed class OpenAIRecommender(ChatClient chat) : IOpenAIRecommender
             options: new ChatCompletionOptions
             {
                 Temperature = 0.2f,
-                // You can also set: MaxOutputTokens, TopP, etc.
+                MaxOutputTokens = 300
             },
             cancellationToken: ct
         );
 
-        var first = completion.Value.Content.FirstOrDefault();
-        var text = first?.Text ?? "{}";
+        var text = completion.Value.Content.FirstOrDefault()?.Text ?? "{}";
 
         try
         {
             var parsed = JsonSerializer.Deserialize<RecommendationResult>(text);
-            return parsed ?? new RecommendationResult
-            {
-                Top = [],
-                Notes = "Failed to parse model output."
-            };
+            return parsed ?? new RecommendationResult { Top = [], Notes = "Failed to parse model output." };
         }
         catch
         {
-            return new RecommendationResult
-            {
-                Top = [],
-                Notes = "Model returned non-JSON; try again."
-            };
+            return new RecommendationResult { Top = [], Notes = "Model returned non-JSON; try again." };
         }
     }
 }

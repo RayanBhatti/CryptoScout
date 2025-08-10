@@ -5,7 +5,7 @@
 }
 <section class="container" style="max-width:1100px;margin:2rem auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif">
   <h1 style="font-size:2rem;margin-bottom:0.5rem;">CryptoScout</h1>
-  <p style="color:#64748b;margin-bottom:1.5rem;">Top 100 prices (USD) with realtime ticks + AI shortlist (based on 1-year growth). Not financial advice.</p>
+  <p style="color:#64748b;margin-bottom:1.5rem;">Top 100 prices (USD) cached every 30 minutes + AI shortlist (based on 1-year growth). Not financial advice.</p>
 
   <div id="reco" style="padding:1rem;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:1rem;"></div>
 
@@ -27,16 +27,25 @@
       <tbody></tbody>
     </table>
   </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.8rem;">
+    <span id="pageInfo" style="color:#64748b;"></span>
+    <div style="display:flex;gap:.5rem;">
+      <button id="prev" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Previous</button>
+      <button id="next" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Next</button>
+    </div>
+  </div>
 </section>
 
 <script>
-let cache = [];
-let sockets = [];
-const CHUNK = 40; // chunk the assets list across few sockets
+let allCoins = [];
+let filteredCoins = [];
+let currentPage = 1;
+const pageSize = 10;
 
 async function fetchCoins(){
   const res = await fetch('/api/coins');
-  return await res.json();
+  return await res.json(); // array
 }
 async function fetchReco(take=3){
   const res = await fetch('/api/recommend?take='+take);
@@ -47,21 +56,33 @@ function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigit
 function row(c){
   const pct = c.priceChangePercentage1y ?? null;
   const color = pct===null ? '#64748b' : (pct>=0 ? '#16a34a' : '#dc2626');
-  return `<tr data-id="${c.id}">
+  return `<tr>
     <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;">${c.marketCapRank}</td>
     <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;display:flex;gap:.6rem;align-items:center;">
       <img src="${c.image}" alt="${c.symbol}" style="width:20px;height:20px;border-radius:50%"/>
       <div><div style="font-weight:600">${c.name}</div><div style="color:#64748b;font-size:.85rem">${c.symbol.toUpperCase()}</div></div>
     </td>
-    <td class="price" style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right" data-price="${c.currentPrice}">$${fmt(c.currentPrice)}</td>
+    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right">$${fmt(c.currentPrice)}</td>
     <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right;color:${color}">${pct===null?'—':fmt(pct)+'%'}</td>
   </tr>`;
 }
 
-function renderTable(data){
+function renderTable(){
+  const start = (currentPage - 1) * pageSize;
+  const page = filteredCoins.slice(start, start + pageSize);
+  document.querySelector('#grid tbody').innerHTML = page.map(row).join('');
+
+  const totalPages = Math.max(1, Math.ceil(filteredCoins.length / pageSize));
+  document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${filteredCoins.length} coins)`;
+  document.getElementById('prev').disabled = currentPage <= 1;
+  document.getElementById('next').disabled = currentPage >= totalPages;
+}
+
+function applyFilter(){
   const q = document.getElementById('q').value.trim().toLowerCase();
-  const filtered = data.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
-  document.querySelector('#grid tbody').innerHTML = filtered.map(row).join('');
+  filteredCoins = allCoins.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
+  currentPage = 1;
+  renderTable();
 }
 
 function renderReco(r){
@@ -84,43 +105,21 @@ function renderReco(r){
   };
 }
 
-// ==== realtime via CoinCap WebSocket ====
-function startSockets(ids){
-  sockets.forEach(s => { try { s.close(); } catch{} });
-  sockets = [];
-
-  for (let i=0; i<ids.length; i+=CHUNK){
-    const chunk = ids.slice(i, i+CHUNK).join(',');
-    const url = `wss://ws.coincap.io/prices?assets=${chunk}`;
-    const ws = new WebSocket(url);
-    ws.onmessage = (msg) => {
-      const data = JSON.parse(msg.data);
-      for (const [id, priceStr] of Object.entries(data)){
-        const cell = document.querySelector(`tr[data-id="${id}"] .price`);
-        if (!cell) continue;
-        const old = parseFloat(cell.getAttribute('data-price') || '0');
-        const now = parseFloat(priceStr);
-        if (!isNaN(now)) {
-          cell.setAttribute('data-price', now.toString());
-          cell.innerHTML = `$${fmt(now)}`;
-          cell.style.background = now >= old ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)';
-          setTimeout(() => cell.style.background = '', 350);
-        }
-      }
-    };
-    sockets.push(ws);
-  }
-}
-
 async function refresh(){
-  cache = await fetchCoins();
-  renderTable(cache);
+  allCoins = await fetchCoins();
+  filteredCoins = allCoins.slice();
+  currentPage = 1;
+  renderTable();
   renderReco(await fetchReco(3));
-  const ids = cache.map(c => c.id.toLowerCase());
-  startSockets(ids);
 }
 
-document.getElementById('q').addEventListener('input', () => renderTable(cache));
+document.getElementById('q').addEventListener('input', applyFilter);
 document.getElementById('refresh').addEventListener('click', refresh);
+document.getElementById('prev').addEventListener('click', () => { if (currentPage>1){ currentPage--; renderTable(); } });
+document.getElementById('next').addEventListener('click', () => {
+  const totalPages = Math.max(1, Math.ceil(filteredCoins.length / pageSize));
+  if (currentPage < totalPages){ currentPage++; renderTable(); }
+});
+
 refresh();
 </script>
