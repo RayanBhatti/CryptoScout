@@ -5,9 +5,16 @@
 }
 <section class="container" style="max-width:1100px;margin:2rem auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif">
   <h1 style="font-size:2rem;margin-bottom:0.5rem;">CryptoScout</h1>
-  <p style="color:#64748b;margin-bottom:1.5rem;">Top 100 prices (USD) cached every 30 minutes + AI shortlist (based on 1-year growth). Not financial advice.</p>
+  <p style="color:#64748b;margin-bottom:1.5rem;">Top 100 prices (USD) cached every 30 minutes + optional AI shortlist (based on 1-year growth). Not financial advice.</p>
 
-  <div id="reco" style="padding:1rem;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:1rem;"></div>
+  <div style="display:flex;gap:0.6rem;align-items:center;margin-bottom:0.75rem;">
+    <button id="genReco" style="padding:.6rem 1rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Generate AI Picks</button>
+    <span id="recoHint" style="color:#64748b;font-size:.9rem;">Click to generate recommendations (no background calls).</span>
+  </div>
+
+  <div id="reco" style="padding:1rem;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:1rem;">
+    <em>No recommendation yet. Click “Generate AI Picks”.</em>
+  </div>
 
   <div style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0 1rem;">
     <input id="q" placeholder="Filter by name/symbol…" style="flex:1;padding:.6rem .8rem;border:1px solid #cbd5e1;border-radius:10px;"/>
@@ -45,10 +52,12 @@ const pageSize = 10;
 
 async function fetchCoins(){
   const res = await fetch('/api/coins');
-  return await res.json(); // array
+  if(!res.ok) throw new Error('Failed to load coins');
+  return await res.json();
 }
 async function fetchReco(take=3){
   const res = await fetch('/api/recommend?take='+take);
+  if(!res.ok) throw new Error('Failed to generate recommendation');
   return await res.json();
 }
 function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
@@ -87,7 +96,7 @@ function applyFilter(){
 
 function renderReco(r){
   const el = document.getElementById('reco');
-  if(!r || !r.top || r.top.length===0){ el.innerHTML = '<em>Could not generate a recommendation. Try refresh.</em>'; return; }
+  if(!r || !r.top || r.top.length===0){ el.innerHTML = '<em>No picks returned. Try again.</em>'; return; }
   const items = r.top.map(p =>
     `<li style="margin:.25rem 0;"><strong>${p.symbol.toUpperCase()}</strong> — weight ${(p.weight*100).toFixed(0)}%<br><span style="color:#475569">${p.why}</span></li>`
   ).join('');
@@ -99,20 +108,40 @@ function renderReco(r){
     </div>
     <button id="reroll" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Re-run</button>
   </div>`;
-  document.getElementById('reroll').onclick = async () => {
+  document.getElementById('reroll').onclick = generateReco;
+}
+
+async function generateReco(){
+  const btn = document.getElementById('genReco');
+  const el = document.getElementById('reco');
+  const hint = document.getElementById('recoHint');
+  try {
+    btn.disabled = true;
+    hint.textContent = 'Generating…';
     el.innerHTML = 'Thinking…';
-    renderReco(await fetchReco(3));
-  };
+    const r = await fetchReco(3);
+    renderReco(r);
+    hint.textContent = 'Done.';
+  } catch (e) {
+    el.innerHTML = `<span style="color:#dc2626">Failed to generate recommendation. ${e?.message ?? ''}</span>`;
+    hint.textContent = 'Click to try again.';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function refresh(){
-  allCoins = await fetchCoins();
-  filteredCoins = allCoins.slice();
-  currentPage = 1;
-  renderTable();
-  renderReco(await fetchReco(3));
+  try {
+    allCoins = await fetchCoins();
+    filteredCoins = allCoins.slice();
+    currentPage = 1;
+    renderTable();
+  } catch (e) {
+    document.querySelector('#grid tbody').innerHTML = `<tr><td colspan="4" style="padding:1rem;color:#dc2626;">Failed to load coins. ${e?.message ?? ''}</td></tr>`;
+  }
 }
 
+// events
 document.getElementById('q').addEventListener('input', applyFilter);
 document.getElementById('refresh').addEventListener('click', refresh);
 document.getElementById('prev').addEventListener('click', () => { if (currentPage>1){ currentPage--; renderTable(); } });
@@ -120,6 +149,8 @@ document.getElementById('next').addEventListener('click', () => {
   const totalPages = Math.max(1, Math.ceil(filteredCoins.length / pageSize));
   if (currentPage < totalPages){ currentPage++; renderTable(); }
 });
+document.getElementById('genReco').addEventListener('click', generateReco);
 
+// initial load: coins only (no recommendation call)
 refresh();
 </script>
