@@ -74,15 +74,15 @@ Open `http://localhost:5000`
 
 ### Convenience scripts (Windows)
 
-If you saved `run.bat` or `run.ps1` in the root, you can use:
+In the root, you can use:
 
 ```powershell
-.un.bat
-# or
-powershell -ExecutionPolicy Bypass -File .un.ps1 -Port 5000
+
+.\run.bat
+
 ```
 
-Both scripts:
+The script:
 - load `.env.local` into the process,
 - `dotnet clean` → `dotnet build` → `dotnet run`.
 
