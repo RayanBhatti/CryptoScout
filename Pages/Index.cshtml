@@ -1,0 +1,126 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "CryptoScout";
+}
+<section class="container" style="max-width:1100px;margin:2rem auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif">
+  <h1 style="font-size:2rem;margin-bottom:0.5rem;">CryptoScout</h1>
+  <p style="color:#64748b;margin-bottom:1.5rem;">Top 100 prices (USD) with realtime ticks + AI shortlist (based on 1-year growth). Not financial advice.</p>
+
+  <div id="reco" style="padding:1rem;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:1rem;"></div>
+
+  <div style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0 1rem;">
+    <input id="q" placeholder="Filter by name/symbol…" style="flex:1;padding:.6rem .8rem;border:1px solid #cbd5e1;border-radius:10px;"/>
+    <button id="refresh" style="padding:.6rem 1rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Refresh</button>
+  </div>
+
+  <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:12px;">
+    <table id="grid" style="width:100%;border-collapse:collapse;">
+      <thead style="background:#f8fafc;">
+        <tr>
+          <th style="text-align:left;padding:.7rem;border-bottom:1px solid #e2e8f0;">#</th>
+          <th style="text-align:left;padding:.7rem;border-bottom:1px solid #e2e8f0;">Coin</th>
+          <th style="text-align:right;padding:.7rem;border-bottom:1px solid #e2e8f0;">Price</th>
+          <th style="text-align:right;padding:.7rem;border-bottom:1px solid #e2e8f0;">1y %</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+let cache = [];
+let sockets = [];
+const CHUNK = 40; // chunk the assets list across few sockets
+
+async function fetchCoins(){
+  const res = await fetch('/api/coins');
+  return await res.json();
+}
+async function fetchReco(take=3){
+  const res = await fetch('/api/recommend?take='+take);
+  return await res.json();
+}
+function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
+
+function row(c){
+  const pct = c.priceChangePercentage1y ?? null;
+  const color = pct===null ? '#64748b' : (pct>=0 ? '#16a34a' : '#dc2626');
+  return `<tr data-id="${c.id}">
+    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;">${c.marketCapRank}</td>
+    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;display:flex;gap:.6rem;align-items:center;">
+      <img src="${c.image}" alt="${c.symbol}" style="width:20px;height:20px;border-radius:50%"/>
+      <div><div style="font-weight:600">${c.name}</div><div style="color:#64748b;font-size:.85rem">${c.symbol.toUpperCase()}</div></div>
+    </td>
+    <td class="price" style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right" data-price="${c.currentPrice}">$${fmt(c.currentPrice)}</td>
+    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right;color:${color}">${pct===null?'—':fmt(pct)+'%'}</td>
+  </tr>`;
+}
+
+function renderTable(data){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const filtered = data.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
+  document.querySelector('#grid tbody').innerHTML = filtered.map(row).join('');
+}
+
+function renderReco(r){
+  const el = document.getElementById('reco');
+  if(!r || !r.top || r.top.length===0){ el.innerHTML = '<em>Could not generate a recommendation. Try refresh.</em>'; return; }
+  const items = r.top.map(p =>
+    `<li style="margin:.25rem 0;"><strong>${p.symbol.toUpperCase()}</strong> — weight ${(p.weight*100).toFixed(0)}%<br><span style="color:#475569">${p.why}</span></li>`
+  ).join('');
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
+    <div>
+      <h3 style="margin:0 0 .25rem 0;font-size:1.1rem;">AI short-list to consider</h3>
+      <ul style="padding-left:1rem;">${items}</ul>
+      <div style="color:#64748b;margin-top:.4rem;font-size:.9rem;">${r.notes}</div>
+    </div>
+    <button id="reroll" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Re-run</button>
+  </div>`;
+  document.getElementById('reroll').onclick = async () => {
+    el.innerHTML = 'Thinking…';
+    renderReco(await fetchReco(3));
+  };
+}
+
+// ==== realtime via CoinCap WebSocket ====
+function startSockets(ids){
+  sockets.forEach(s => { try { s.close(); } catch{} });
+  sockets = [];
+
+  for (let i=0; i<ids.length; i+=CHUNK){
+    const chunk = ids.slice(i, i+CHUNK).join(',');
+    const url = `wss://ws.coincap.io/prices?assets=${chunk}`;
+    const ws = new WebSocket(url);
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
+      for (const [id, priceStr] of Object.entries(data)){
+        const cell = document.querySelector(`tr[data-id="${id}"] .price`);
+        if (!cell) continue;
+        const old = parseFloat(cell.getAttribute('data-price') || '0');
+        const now = parseFloat(priceStr);
+        if (!isNaN(now)) {
+          cell.setAttribute('data-price', now.toString());
+          cell.innerHTML = `$${fmt(now)}`;
+          cell.style.background = now >= old ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.08)';
+          setTimeout(() => cell.style.background = '', 350);
+        }
+      }
+    };
+    sockets.push(ws);
+  }
+}
+
+async function refresh(){
+  cache = await fetchCoins();
+  renderTable(cache);
+  renderReco(await fetchReco(3));
+  const ids = cache.map(c => c.id.toLowerCase());
+  startSockets(ids);
+}
+
+document.getElementById('q').addEventListener('input', () => renderTable(cache));
+document.getElementById('refresh').addEventListener('click', refresh);
+refresh();
+</script>
