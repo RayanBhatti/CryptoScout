@@ -3,15 +3,16 @@ let allCoins = [];
 let filteredCoins = [];
 let currentPage = 1;
 const pageSize = 10;
-const chat = []; // {role, content}
+const chat = [];
 const sparkCache = new Map();
 
 /* ===== Utils ===== */
 function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
 function pctClass(v){ if(v === null || v === undefined) return 'pct dim'; return v>=0 ? 'pct pos' : 'pct neg'; }
+function pctText(v){ return v===null || v===undefined ? '—' : (Math.round(v*100)/100) + '%'; }
 
 function row(c){
-  const pct = c.priceChangePercentage1y ?? null;
+  const pct1y = c.priceChangePercentage1y ?? null;
   return `<tr>
     <td>${c.marketCapRank}</td>
     <td class="coin">
@@ -24,7 +25,7 @@ function row(c){
       </div>
     </td>
     <td class="num">$${fmt(c.currentPrice)}</td>
-    <td class="num ${pctClass(pct)}">${pct===null?'—':fmt(pct)+'%'}</td>
+    <td class="num ${pctClass(pct1y)}">${pctText(pct1y)}</td>
     <td class="num"><div class="spark" data-id="${c.id}"></div></td>
   </tr>`;
 }
@@ -41,7 +42,14 @@ async function fetchReco(take=3){
   return await res.json();
 }
 
-/* ===== Render ===== */
+/* ===== Filter & render ===== */
+function applyFilter(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  filteredCoins = allCoins.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
+  currentPage = 1;
+  renderTable();
+}
+
 function renderTable(){
   const start = (currentPage - 1) * pageSize;
   const page = filteredCoins.slice(start, start + pageSize);
@@ -61,13 +69,6 @@ function renderTable(){
   loadSparklinesForPage();
 }
 
-function applyFilter(){
-  const q = document.getElementById('q').value.trim().toLowerCase();
-  filteredCoins = allCoins.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
-  currentPage = 1;
-  renderTable();
-}
-
 async function refresh(){
   const tbody = document.querySelector('#grid tbody');
   tbody.innerHTML = Array.from({length:10}).map(()=>`
@@ -78,7 +79,7 @@ async function refresh(){
     </tr>
   `).join('');
   try {
-    allCoins = await fetchCoins();
+    allCoins = await fetchCoins();            // already ordered by market cap
     filteredCoins = allCoins.slice();
     currentPage = 1;
     renderTable();
@@ -89,7 +90,6 @@ async function refresh(){
 
 /* ===== Chat helpers ===== */
 function pushMsg(role, content){
-  chat.push({ role, content });
   const div = document.createElement('div');
   div.className = 'msg ' + (role === 'user' ? 'me' : 'bot');
   div.textContent = content;
@@ -107,7 +107,6 @@ function formatRecoForChat(r){
   return `Here are my latest picks:\n${lines.join("\n")}${notes}\n\nAsk me anything about these choices, risks, or alternatives.`;
 }
 
-/* Generate picks -> ONLY post into chat */
 async function generateReco(){
   const btn = document.getElementById('genReco');
   try {
@@ -169,7 +168,7 @@ async function loadSparklinesForPage() {
       const arr = await res.json(); // number[]
       sparkCache.set(id, arr);
       drawSparkline(el, arr);
-    } catch (e) {
+    } catch {
       el.innerHTML = '<span style="color:var(--neutral);font-size:.85rem">n/a</span>';
     }
   }
@@ -215,6 +214,36 @@ document.getElementById('sendChat').addEventListener('click', sendChat);
 document.getElementById('chatInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
+
+/* ===== Theme toggle (persisted) ===== */
+(function () {
+  const KEY = 'theme';
+  const btn = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    localStorage.setItem(KEY, t);
+    // Show the opposite icon as an affordance (moon = go darker, sun = go lighter)
+    if (icon) icon.className = (t === 'light') ? 'bi bi-moon-stars' : 'bi bi-brightness-high';
+  }
+
+  // Boot: saved -> system -> dark default
+  const saved = localStorage.getItem(KEY);
+  if (saved === 'light' || saved === 'dark') {
+    setTheme(saved);
+  } else {
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    setTheme(prefersLight ? 'light' : 'dark');
+  }
+
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const next = (document.documentElement.dataset.theme === 'light') ? 'dark' : 'light';
+      setTheme(next);
+    });
+  }
+})();
 
 /* ===== Initial load ===== */
 refresh();

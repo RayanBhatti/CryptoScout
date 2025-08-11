@@ -1,10 +1,10 @@
 using CryptoScout.Models;
 
-namespace CryptoScout.Services;
-
-public interface ICryptoDataProvider
+namespace CryptoScout.Services
 {
-    Task<IReadOnlyList<CryptoAsset>> GetTop100Async(string vsCurrency = "usd", CancellationToken ct = default);
-
-    Task<IReadOnlyList<decimal>> GetSparklineAsync(string id, string vsCurrency = "usd", int days = 365, CancellationToken ct = default);
+    public interface ICryptoDataProvider
+    {
+        Task<IReadOnlyList<CryptoAsset>> GetTop100Async(string vsCurrency, CancellationToken ct = default);
+        Task<IReadOnlyList<decimal>> GetSparklineAsync(string id, int days, CancellationToken ct = default);
+    }
 }

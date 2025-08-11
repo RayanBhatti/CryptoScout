@@ -78,9 +78,10 @@ app.MapGet("/api/recommend", async (
 app.MapGet("/api/sparkline", async (ICryptoDataProvider provider, string id, int days, CancellationToken ct) =>
 {
     var d = days <= 0 ? 365 : days;
-    var values = await provider.GetSparklineAsync(id, "usd", d, ct);
-    return Results.Ok(values); // returns decimal[]
+    var values = await provider.GetSparklineAsync(id, d, ct); // <-- removed "usd"
+    return Results.Ok(values);
 });
+
 
 // Chat about the latest picks
 app.MapPost("/api/chat", async (
