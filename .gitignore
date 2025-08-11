@@ -1,1 +1,22 @@
-.env.local
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
