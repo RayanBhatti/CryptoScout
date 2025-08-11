@@ -4,6 +4,7 @@ ASP.NET Core 8 website that lists the **top 100 crypto assets** and (optionally)
 Current stack: **.NET 8 + Razor Pages**, **CoinGecko Demo API** for market data, and **Groq** (OpenAI-compatible) for recommendations.
 
 > Not financial advice. For educational use only.
+<img width="1244" height="949" alt="image" src="https://github.com/user-attachments/assets/6d063d78-c3d8-4985-a634-64b593045c84" />
 
 ---
 
