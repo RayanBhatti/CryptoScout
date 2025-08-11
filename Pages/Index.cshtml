@@ -28,13 +28,13 @@
   <div class="grid">
     <!-- Left: Prices table -->
     <div class="card">
-      <div class="section-head">
-        <div class="controls" style="flex-wrap:wrap; row-gap:.5rem;">
-          <input id="q" class="input" placeholder="Filter by name/symbol…" aria-label="Filter coins" />
+      <div class="section-head section-head--stack">
+        <div class="controls controls--grow">
+          <input id="q" class="input input--full" placeholder="Filter by name/symbol…" aria-label="Filter coins" />
         </div>
-        <div class="controls">
-          <button id="refresh" class="btn">Refresh</button>
-          <button id="genReco" class="btn btn-green">Generate AI Shortlist</button>
+        <div class="controls controls--grow">
+          <button id="refresh" class="btn btn--block-sm">Refresh</button>
+          <button id="genReco" class="btn btn-green btn--block-sm">Generate AI Shortlist</button>
         </div>
       </div>
 
@@ -53,24 +53,24 @@
               <th class="th-coin">Coin</th>
               <th class="num">Price</th>
               <th class="num">1y %</th>
-              <th class="num">1y</th>
+              <th class="num hide-sm">1y</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
 
-      <div class="section-head" style="border-top:1px solid var(--border); border-bottom: none;">
+      <div class="section-head section-head--stack" style="border-top:1px solid var(--border); border-bottom: none;">
         <span id="pageInfo" class="meta"></span>
         <div class="controls">
-          <button id="prev" class="btn">Previous</button>
-          <button id="next" class="btn">Next</button>
+          <button id="prev" class="btn btn--block-sm">Previous</button>
+          <button id="next" class="btn btn--block-sm">Next</button>
         </div>
       </div>
     </div>
 
     <!-- Right: Chat -->
-    <div class="card">
+    <div class="card chat-card">
       <div class="section-head" style="justify-content:flex-start; gap:.75rem;">
         <span style="font-weight:600;">Chat about the latest picks</span>
       </div>

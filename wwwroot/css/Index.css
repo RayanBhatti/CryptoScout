@@ -1,6 +1,5 @@
 /* ========================
    THEME TOKENS
-   Dark = default; Light via [data-theme="light"]
 ======================== */
 :root {
   color-scheme: dark;
@@ -30,7 +29,7 @@
   --neutral: #64748b;
 }
 
-/* Page background + effects (grid + aurora) */
+/* Background + effects */
 html, body {
   height: 100%;
   margin: 0;
@@ -40,7 +39,7 @@ html, body {
   transition: background-color .25s ease, color .25s ease;
 }
 
-/* grid */
+/* grid lines */
 body::before{
   content:"";
   position: fixed; inset: 0;
@@ -53,7 +52,7 @@ body::before{
   opacity:.35;
 }
 
-/* aurora blobs */
+/* aurora */
 body::after{
   content:"";
   position: fixed; inset: 0;
@@ -66,15 +65,15 @@ body::after{
   opacity:.85;
 }
 
-/* Content sits above effects */
+/* Content above effects */
 .wrap { position: relative; z-index: 1; max-width:1100px; margin: 28px auto; padding: 0 16px; }
 
-/* Top area */
+/* Top */
 .topbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:16px; }
 .brand h1{ margin:0 0 .25rem 0; font-size:1.5rem; }
 .brand p{ margin:0; color:var(--muted); }
 
-.top-actions{ display:flex; align-items:center; gap:.5rem; }
+.top-actions{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
 .source{
   display:inline-flex; align-items:center; gap:.5rem;
   padding:.55rem .8rem; border:1px solid var(--border); border-radius: 12px; text-decoration:none;
@@ -82,11 +81,11 @@ body::after{
 }
 .source:hover{ border-color:var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 40%, transparent); }
 
-/* Two-column grid, equal heights */
+/* Grid */
 .grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap: 16px; align-items: stretch; }
 @media (max-width: 960px){ .grid{ grid-template-columns: 1fr; } }
 
-/* Cards stretch and are flex columns */
+/* Cards */
 .card{
   display:flex; flex-direction:column;
   background: var(--card);
@@ -103,14 +102,17 @@ body::after{
   background: linear-gradient(180deg, rgba(255,255,255,.03), transparent);
   border-bottom: 1px solid var(--border);
 }
+.section-head--stack{ flex-wrap: wrap; }
 
-/* Controls */
+/* Controls + inputs/buttons */
 .controls{ display:flex; align-items:center; gap:.6rem; }
+.controls--grow{ flex: 1 1 320px; }
 .input{
   padding:.6rem .8rem; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text);
   outline: none; min-width: 240px;
 }
 .input:focus{ border-color: var(--ring); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 40%, transparent); }
+.input--full{ width: 100%; min-width: 0; }
 
 .btn{
   padding:.6rem .9rem; border:1px solid var(--border); border-radius: 12px; background: var(--card-strong); color: var(--text);
@@ -120,8 +122,12 @@ body::after{
 .btn[disabled]{ opacity:.6; cursor:not-allowed; }
 .btn-green{ background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.15)); border-color: rgba(34,197,94,.35); }
 .btn-ghost{ background: transparent; border: 1px solid var(--border); }
+.btn--block-sm{ }
+@media (max-width:640px){
+  .btn--block-sm{ flex:1 1 auto; width:100%; }
+}
 
-/* Table area grows to fill card */
+/* Table container grows */
 .table-wrap{ flex: 1 1 auto; overflow:auto; }
 
 /* Table */
@@ -139,7 +145,7 @@ thead th{
 }
 tbody td{ padding: 10px 12px; border-bottom: 1px solid var(--border); }
 th.num, td.num { text-align: right; }
-.th-coin { padding-left: 44px; } /* aligns with avatar+gap */
+.th-coin { padding-left: 44px; }
 
 .coin-cell{ display:flex; align-items:center; gap:.75rem; min-width:0; }
 .avatar{ width:24px; height:24px; border-radius:50%; display:block; }
@@ -157,10 +163,11 @@ th.num, td.num { text-align: right; }
 /* Sparkline */
 .spark{ height:42px; }
 
-/* Chat column fills height naturally */
+/* Chat */
+.chat-card{ max-height: none; }
 #chatLog{
   flex: 1 1 auto;
-  min-height: 0;              /* <-- allows it to shrink/grow inside the flex card */
+  min-height: 0;
   overflow:auto;
   padding: 12px 16px;
   display:flex; flex-direction:column; gap:10px;
@@ -169,12 +176,39 @@ th.num, td.num { text-align: right; }
 .msg.me{ align-self:flex-end; background: var(--card-strong); }
 .msg.bot{ align-self:flex-start; background: transparent; }
 
-.chatInput{ display:flex; align-items:flex-end; gap:.6rem; padding: 12px 16px; border-top:1px solid var(--border); }
+.chatInput{
+  display:flex; align-items:flex-end; gap:.6rem; padding: 12px 16px; border-top:1px solid var(--border);
+  background: var(--card);
+}
 .chatInput textarea{
   flex:1; min-height:44px; resize: vertical;
   padding:.6rem .8rem; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text);
 }
 .chatInput textarea:focus{ border-color: var(--ring); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 40%, transparent); }
+
+/* Small-screen tweaks */
+@media (max-width: 640px){
+  .wrap{ margin: 16px auto; padding: 0 12px; }
+
+  .topbar{ flex-direction: column; align-items: stretch; gap:.75rem; }
+  .top-actions{ align-self:flex-end; }
+
+  /* stack controls nicely */
+  .section-head--stack .controls{ width:100%; }
+  .controls--grow{ flex: 1 1 100%; }
+  .input{ min-width: 0; }
+
+  /* hide sparkline column on mobile */
+  .hide-sm, th:nth-child(5), td:nth-child(5){ display:none; }
+
+  /* make price column a bit narrower */
+  th:nth-child(3), td:nth-child(3){ width: 120px; }
+
+  /* chat card height with sticky input */
+  .chat-card{ max-height: 70vh; }
+  .chatInput{ position: sticky; bottom: 0; }
+  #chatLog{ max-height: calc(70vh - 70px); } /* leaves room for input */
+}
 
 /* Shimmer skeleton */
 @keyframes shimmer { 0%{ background-position:200% 0 } 100%{ background-position:-200% 0 } }

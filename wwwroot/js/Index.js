@@ -79,7 +79,7 @@ async function refresh(){
     </tr>
   `).join('');
   try {
-    allCoins = await fetchCoins();            // already ordered by market cap
+    allCoins = await fetchCoins();
     filteredCoins = allCoins.slice();
     currentPage = 1;
     renderTable();
@@ -114,6 +114,12 @@ async function generateReco(){
     pushBot('Generating a fresh shortlist…');
     const r = await fetchReco(3);
     document.getElementById('chatLog').lastChild.textContent = formatRecoForChat(r);
+
+    // Mobile nicety: scroll to chat after picks are ready
+    if (window.innerWidth <= 640) {
+      const chatCard = document.querySelector('.chat-card');
+      if (chatCard) chatCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   } catch (e) {
     document.getElementById('chatLog').lastChild.textContent = 'Sorry, I couldn’t generate picks just now. Try again.';
   } finally {
@@ -162,10 +168,10 @@ async function loadSparklinesForPage() {
     }
 
     try {
-      await new Promise(r => setTimeout(r, i * 80)); // gentle stagger
+      await new Promise(r => setTimeout(r, i * 80));
       const res = await fetch(`/api/sparkline?id=${encodeURIComponent(id)}&days=365`);
       if (!res.ok) throw new Error('sparkline fetch failed');
-      const arr = await res.json(); // number[]
+      const arr = await res.json();
       sparkCache.set(id, arr);
       drawSparkline(el, arr);
     } catch {
@@ -224,11 +230,9 @@ document.getElementById('chatInput').addEventListener('keydown', (e) => {
   function setTheme(t) {
     document.documentElement.dataset.theme = t;
     localStorage.setItem(KEY, t);
-    // Show the opposite icon as an affordance (moon = go darker, sun = go lighter)
     if (icon) icon.className = (t === 'light') ? 'bi bi-moon-stars' : 'bi bi-brightness-high';
   }
 
-  // Boot: saved -> system -> dark default
   const saved = localStorage.getItem(KEY);
   if (saved === 'light' || saved === 'dark') {
     setTheme(saved);
