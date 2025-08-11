@@ -7,7 +7,8 @@ Stack: **.NET 8 + Razor Pages**, **CoinGecko Demo API** (market data), **Groq** 
 
 > Not financial advice. For educational use only.
 
-![alt text](image.png)
+<img width="1232" height="930" alt="image" src="https://github.com/user-attachments/assets/3f948262-d72d-4c82-8958-6c2816fd6e8a" />
+
 
 ---
 
