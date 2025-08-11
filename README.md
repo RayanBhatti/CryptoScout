@@ -1,21 +1,25 @@
 # CryptoScout
 
-ASP.NET Core 8 website that lists the **top 100 crypto assets** and (optionally) asks an LLM for a **buy shortlist** based on **1-year growth**.
-Current stack: **.NET 8 + Razor Pages**, **CoinGecko Demo API** for market data, and **Groq** (OpenAI-compatible) for recommendations.
+ASP.NET Core 8 website that lists the **top 100 crypto assets** and (optionally) asks an LLM for a **buy shortlist** based on **1-year growth**.  
+Stack: **.NET 8 + Razor Pages**, **CoinGecko Demo API** (market data), **Groq** (OpenAI-compatible) for recommendations & chat.
 
 > Not financial advice. For educational use only.
-<img width="1244" height="949" alt="image" src="https://github.com/user-attachments/assets/6d063d78-c3d8-4985-a634-64b593045c84" />
+
+![alt text](image.png)
 
 ---
 
 ## Highlights
 
 - **Free data source:** CoinGecko Demo API (`coins/markets`)
-- **LLM provider:** Groq (`llama-3.1-8b-instant`) via their OpenAI-compatible endpoint
-- **Manual AI trigger:** recommendations are generated **only** when you click **“Generate AI Picks”**
+- **LLM provider:** Groq (`llama-3.1-8b-instant`) via OpenAI-compatible endpoint
+- **Manual AI trigger:** picks are generated **only** when you click **“Generate AI Shortlist”** (green button)
+- **Conversational UX:** picks are posted **in the chat** and you can ask follow-ups about the shortlist
 - **30-minute tick:** server caches market data for 30 minutes (no websockets)
 - **Pagination:** table shows **10 coins per page** with Previous/Next
-- **Clean endpoints:** `/api/coins`, `/api/recommend?take=3`, `/health`
+- **1-year sparklines:** inline SVG sparkline per visible coin (lazy-loaded)
+- **Clean endpoints:** `/api/coins`, `/api/recommend?take=3`, `/api/sparkline?id=bitcoin&days=365`, `/api/chat`, `/health`
+- **Polished UI:** responsive, mobile-friendly, glassy cards, sticky table headers, animated background, top-right **Source** link
 
 ---
 
@@ -33,7 +37,7 @@ CryptoScout/
 │  ├─ CoinGeckoProvider.cs
 │  └─ OpenAIRecommender.cs
 ├─ Pages/
-│  ├─ Index.cshtml
+│  ├─ Index.cshtml         # table + chat UI, sparklines, styles
 │  └─ Index.cshtml.cs
 └─ wwwroot/
    └─ (static assets)
@@ -51,14 +55,14 @@ CryptoScout/
 
 ## Configuration
 
-Create a file named **`.env.local`** in the project root:
+Create **`.env.local`** in the project root:
 
 ```ini
 GROQ_API_KEY=your_groq_key_here
 COINGECKO_API_KEY=your_coingecko_demo_key_here
 ```
 
-Keys are loaded at startup by `DotNetEnv`. Do **not** commit this file.
+Loaded at startup via `DotNetEnv`. Do **not** commit this file.
 
 ---
 
@@ -73,52 +77,54 @@ dotnet run --urls http://localhost:5000
 
 Open `http://localhost:5000`
 
-### Convenience scripts (Windows)
-
-In the root, you can use:
+### Convenience (Windows)
 
 ```powershell
-
-.\run.bat
-
+.
+un.bat
 ```
 
-The script:
-- load `.env.local` into the process,
-- `dotnet clean` → `dotnet build` → `dotnet run`.
+Runs: load `.env.local` → `dotnet clean` → `dotnet build` → `dotnet run`.
 
 ---
 
 ## How it works
 
 ### Data (CoinGecko)
-- `Services/CoinGeckoProvider.cs` calls:
-  - `GET /api/v3/coins/markets?vs_currency=usd&per_page=100&order=market_cap_desc&price_change_percentage=1y`
-- Sends the header `x-cg-demo-api-key` if `COINGECKO_API_KEY` is present.
-- Caches the processed list for **30 minutes**:
-  ```csharp
-  cache.Set(cacheKey, ordered, TimeSpan.FromMinutes(30));
-  ```
-  This defines the “tick” cadence. To change it, adjust the value above.
+
+- `Services/CoinGeckoProvider.cs`
+  - Top 100:  
+    `GET /api/v3/coins/markets?vs_currency=usd&per_page=100&order=market_cap_desc&price_change_percentage=1y`
+  - Sparkline (per coin):  
+    `GET /api/v3/coins/{id}/market_chart?vs_currency=usd&days=365&interval=daily`
+  - Sends `x-cg-demo-api-key: <COINGECKO_API_KEY>` if provided.
+  - Caches results for **30 minutes** (`IMemoryCache`).
 
 ### AI (Groq)
-- `Program.cs` builds an `OpenAI.Chat.ChatClient` pointed at `https://api.groq.com/openai/v1` with your `GROQ_API_KEY`.
-- `Services/OpenAIRecommender.cs` sends a shortlist of the **top 1-year performers** and asks for a **JSON-only** recommendation (weights + reasoning).
-- If the model returns non-JSON or empty results, the code **falls back** to a simple heuristic (top growth, even weights) so the UI always shows picks.
 
-### UI
+- `Program.cs`: configures `OpenAI.Chat.ChatClient` with:
+  - `Endpoint = https://api.groq.com/openai/v1`
+  - `Model = llama-3.1-8b-instant`
+- `Services/OpenAIRecommender.cs`:
+  - Asks the model for a JSON-only shortlist (symbols, weights, reasoning) using the latest 1-year data.
+  - If parsing fails or result is empty, falls back to a simple heuristic (top growth with even weights).
+- **/api/recommend** stores the latest shortlist in cache so **/api/chat** can discuss those exact picks.
+
+### UI (Razor page)
+
 - `Pages/Index.cshtml`:
-  - Loads coins on page load.
-  - Filters by name/symbol.
-  - Paginates **10 rows per page** (change `const pageSize = 10;` to tweak).
-  - **Does not** call the AI automatically. Click **“Generate AI Picks”** to fetch `/api/recommend`.
+  - **Left:** Prices table (filter, paging, 1-year % column, inline sparklines for the 10 visible coins).
+  - **Right:** Chat panel (assistant & user bubbles, keyboard submit).
+  - **Green “Generate AI Shortlist” button** triggers `/api/recommend` and posts the picks **directly into chat**.
+  - Responsive layout, animated background, glassy cards, sticky table headers.
+  - Top-right **Source** link: https://github.com/RayanBhatti/CryptoScout
 
 ---
 
 ## API endpoints
 
-- `GET /api/coins`  
-  Returns `CryptoAsset[]`:
+- `GET /api/coins` → `CryptoAsset[]`  
+  Example item:
   ```json
   {
     "id": "bitcoin",
@@ -132,8 +138,9 @@ The script:
   }
   ```
 
-- `GET /api/recommend?take=3`  
-  Returns:
+- `GET /api/sparkline?id=bitcoin&days=365` → `number[]` (daily prices for inline sparkline)
+
+- `GET /api/recommend?take=3` → shortlist
   ```json
   {
     "top": [
@@ -145,56 +152,51 @@ The script:
   }
   ```
 
-- `GET /health`  
-  Returns `{ "ok": true }`.
+- `POST /api/chat` → chat with the latest shortlist (request/response messages array)
+
+- `GET /health` → `{ "ok": true }`
 
 ---
 
 ## Customization
 
-- **Change page size**  
-  `Pages/Index.cshtml`: `const pageSize = 10;`
-
-- **Change tick interval**  
-  `Services/CoinGeckoProvider.cs` cache expiry: `TimeSpan.FromMinutes(30)`.
-
-- **Change model**  
-  `Program.cs`: `const string groqModel = "llama-3.1-8b-instant";`
-
-- **Change “take” default**  
-  Frontend calls `/api/recommend?take=3`. Adjust the query in `Index.cshtml` or enforce server-side in `Program.cs`.
+- **Page size**: `Pages/Index.cshtml` → `const pageSize = 10;`
+- **Tick interval**: `CoinGeckoProvider` cache expiry → `TimeSpan.FromMinutes(30)`
+- **Model**: `Program.cs` → `const string groqModel = "llama-3.1-8b-instant";`
+- **Shortlist size**: Frontend calls `/api/recommend?take=3` (adjust query or enforce in `Program.cs`)
+- **UI theme**: All styles are inline in `Index.cshtml` (tokens at the top). Button class for the shortlist is `btn btn-green`.
 
 ---
 
 ## Troubleshooting
 
-- **Coins load but AI picks say “No picks returned”**  
-  The recommender now falls back automatically. If you still see an empty state, check server logs for Groq errors (401/429). Confirm `GROQ_API_KEY` is set and valid.
+- **“No picks returned.”**  
+  The recommender falls back automatically; if still empty, check server logs (401/429). Verify `GROQ_API_KEY`.
 
-- **401 or 403 from CoinGecko**  
-  Make sure `COINGECKO_API_KEY` is present and you did not exceed Demo limits. The app logs responses when a call fails.
+- **CoinGecko 401/403**  
+  Ensure `COINGECKO_API_KEY` is set and rate limits aren’t exceeded.
 
-- **.env.local not loaded**  
-  Ensure `.env.local` is in the project root and `Program.cs` contains:
+- **`.env.local` not loading**  
+  Confirm `Program.cs` contains:
   ```csharp
   if (File.Exists(".env.local")) { Env.Load(".env.local"); }
   ```
 
 - **Port conflicts**  
-  Run with a different port: `dotnet run --urls http://localhost:5050`
+  Run with another port: `dotnet run --urls http://localhost:5050`
 
 ---
 
 ## Security
 
-- Never commit secrets. `.env.local` should be git-ignored.
-- For production hosting, set environment variables in your platform’s secret manager.
+- Never commit secrets. `.env.local` is git-ignored.
+- For production, use your platform’s secret manager (environment variables).
 
 ---
 
 ## License
 
-You can license this however you prefer. Typical choices are MIT or Apache-2.0.
+Choose your preferred license (e.g., MIT or Apache-2.0).
 
 ---
 
