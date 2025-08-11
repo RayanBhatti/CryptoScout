@@ -1,4 +1,4 @@
-// ===== State =====
+/* ===== State ===== */
 let allCoins = [];
 let filteredCoins = [];
 let currentPage = 1;
@@ -6,7 +6,7 @@ const pageSize = 10;
 const chat = []; // {role, content}
 const sparkCache = new Map();
 
-// ===== Utils =====
+/* ===== Utils ===== */
 function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
 function pctClass(v){ if(v === null || v === undefined) return 'pct dim'; return v>=0 ? 'pct pos' : 'pct neg'; }
 
@@ -14,11 +14,13 @@ function row(c){
   const pct = c.priceChangePercentage1y ?? null;
   return `<tr>
     <td>${c.marketCapRank}</td>
-    <td style="display:flex; gap:.65rem; align-items:center;">
-      <img class="avatar" src="${c.image}" alt="${c.symbol}" />
-      <div>
-        <div style="font-weight:600">${c.name}</div>
-        <div style="color:var(--muted); font-size:.86rem">${c.symbol.toUpperCase()}</div>
+    <td class="coin">
+      <div class="coin-cell">
+        <img class="avatar" src="${c.image}" alt="${c.symbol}" />
+        <div>
+          <div class="coin-name">${c.name}</div>
+          <div class="coin-sym">${c.symbol.toUpperCase()}</div>
+        </div>
       </div>
     </td>
     <td class="num">$${fmt(c.currentPrice)}</td>
@@ -27,7 +29,7 @@ function row(c){
   </tr>`;
 }
 
-// ===== Data calls =====
+/* ===== Data calls ===== */
 async function fetchCoins(){
   const res = await fetch('/api/coins');
   if(!res.ok) throw new Error('Failed to load coins');
@@ -39,7 +41,7 @@ async function fetchReco(take=3){
   return await res.json();
 }
 
-// ===== Render =====
+/* ===== Render ===== */
 function renderTable(){
   const start = (currentPage - 1) * pageSize;
   const page = filteredCoins.slice(start, start + pageSize);
@@ -85,7 +87,7 @@ async function refresh(){
   }
 }
 
-// ===== Chat helpers =====
+/* ===== Chat helpers ===== */
 function pushMsg(role, content){
   chat.push({ role, content });
   const div = document.createElement('div');
@@ -105,7 +107,7 @@ function formatRecoForChat(r){
   return `Here are my latest picks:\n${lines.join("\n")}${notes}\n\nAsk me anything about these choices, risks, or alternatives.`;
 }
 
-// Generate picks -> ONLY post into chat
+/* Generate picks -> ONLY post into chat */
 async function generateReco(){
   const btn = document.getElementById('genReco');
   try {
@@ -120,7 +122,7 @@ async function generateReco(){
   }
 }
 
-// ===== Chat API =====
+/* ===== Chat API ===== */
 async function sendChat(){
   const input = document.getElementById('chatInput');
   const send = document.getElementById('sendChat');
@@ -147,7 +149,7 @@ async function sendChat(){
   }
 }
 
-// ===== Sparklines =====
+/* ===== Sparklines ===== */
 async function loadSparklinesForPage() {
   const holders = Array.from(document.querySelectorAll('.spark'));
   for (let i = 0; i < holders.length; i++) {
@@ -200,7 +202,7 @@ function drawSparkline(holder, values) {
     </svg>`;
 }
 
-// ===== Events =====
+/* ===== Events ===== */
 document.getElementById('q').addEventListener('input', applyFilter);
 document.getElementById('refresh').addEventListener('click', refresh);
 document.getElementById('prev').addEventListener('click', () => { if (currentPage>1){ currentPage--; renderTable(); } });
@@ -214,5 +216,5 @@ document.getElementById('chatInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
 
-// ===== Initial load =====
+/* ===== Initial load ===== */
 refresh();

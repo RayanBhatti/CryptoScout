@@ -32,13 +32,14 @@
 html,body{height:100%}
 body{
   margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans";
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== Background effects ===== */
 .bg-effects{
   position: fixed; inset: 0; z-index: -1; pointer-events:none;
   overflow:hidden;
@@ -89,6 +90,7 @@ body{
 }
 .source:hover{ transform: translateY(-1px); border-color: var(--ring); box-shadow: 0 14px 35px rgba(124,172,248,.15); }
 
+/* ===== Layout ===== */
 .grid{
   display:grid;
   grid-template-columns: 1.1fr .9fr;
@@ -113,6 +115,7 @@ body{
   display:flex; align-items:center; justify-content:space-between; gap:.75rem;
 }
 
+/* ===== Inputs & Buttons ===== */
 .controls{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
 .input{
   padding:.6rem .8rem; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text);
@@ -123,22 +126,26 @@ body{
   padding:.6rem .9rem; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text); cursor:pointer;
   transition: transform .06s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
-  .btn-green {
-    background: var(--success);
-    color: #fff;
-    border-color: var(--success);
-  }
-  .btn-green:hover {
-    background: #15803d;
-    border-color: #15803d;
-  }
 .btn:hover{ border-color: var(--ring); box-shadow: 0 8px 24px rgba(124,172,248,.12); background: rgba(124,172,248,.06); }
 .btn:active{ transform: translateY(1px); }
 .btn:disabled{ opacity:.6; cursor:default; transform:none; box-shadow:none; }
 
+/* Green variant */
+.btn-green{
+  background: var(--success);
+  border-color: color-mix(in srgb, var(--success) 75%, var(--border));
+  color: #fff;
+}
+.btn-green:hover{
+  background: color-mix(in srgb, var(--success) 92%, white 8%);
+  border-color: var(--success);
+  box-shadow: 0 8px 24px rgba(22,163,74,.25);
+}
+
+/* ===== Table ===== */
 .table-wrap{ overflow:auto; border-top:1px solid var(--border); border-bottom:1px solid var(--border); border-radius: 12px; }
 table{ width:100%; border-collapse: collapse; }
-th, td{ padding: .7rem .8rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+th, td{ padding: .7rem .8rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: middle; }
 thead th{
   position: sticky; top: 0; z-index: 1;
   background: linear-gradient(180deg, color-mix(in srgb, var(--card) 40%, transparent), var(--card));
@@ -151,9 +158,26 @@ tbody tr:hover{ background: color-mix(in srgb, var(--card) 70%, transparent); }
 .pct.neg{ color: var(--danger) }
 .pct.dim{ color: var(--neutral) }
 
+/* Coin column alignment */
+td.coin { padding: .7rem .8rem; }
+.coin-cell {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  column-gap: .65rem;
+}
+.avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  object-fit: cover; display: block;
+}
+.coin-name { font-weight: 600; line-height: 1.1; }
+.coin-sym  { color: var(--muted); font-size: .86rem; line-height: 1.1; margin-top: 2px; }
+
+/* ===== Pager ===== */
 .pager{ display:flex; justify-content:space-between; align-items:center; padding: .7rem 0; }
 .meta{ color: var(--muted); font-size: .95rem; }
 
+/* ===== Chat ===== */
 #chatLog{ padding:1rem; height: min(66vh, 650px); overflow:auto; display:flex; flex-direction:column; gap:.7rem; }
 .msg{
   max-width: 85%;
@@ -174,13 +198,13 @@ tbody tr:hover{ background: color-mix(in srgb, var(--card) 70%, transparent); }
 }
 .chatInput textarea:focus{ border-color: var(--ring); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 40%, transparent); }
 
+/* ===== Sparklines ===== */
 .spark{ width: 150px; height: 42px; }
 @media (max-width: 500px){ .spark{ width: 120px; } }
 
-.avatar{ width:22px; height:22px; border-radius:50%; object-fit:cover; }
-.sr{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0; clip:rect(0 0 0 0); overflow:hidden; white-space:nowrap; }
-
+/* ===== Scrollbar polish (WebKit) ===== */
 *::-webkit-scrollbar{ height:10px; width:10px }
 *::-webkit-scrollbar-thumb{ background: color-mix(in srgb, var(--text) 15%, transparent); border-radius: 10px; }
 
+/* ===== Shimmer for loading ===== */
 @keyframes shimmer{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
