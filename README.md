@@ -1,5 +1,7 @@
 # CryptoScout
 
+[Live Demo ->](https://zonal-sallyanne-rayanbhatti2002-9d154d18.koyeb.app/)
+
 ASP.NET Core 8 website that lists the **top 100 crypto assets** and (optionally) asks an LLM for a **buy shortlist** based on **1-year growth**.  
 Stack: **.NET 8 + Razor Pages**, **CoinGecko Demo API** (market data), **Groq** (OpenAI-compatible) for recommendations & chat.
 
