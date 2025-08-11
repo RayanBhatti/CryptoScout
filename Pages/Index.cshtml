@@ -3,53 +3,306 @@
 @{
     ViewData["Title"] = "CryptoScout";
 }
-<section class="container" style="max-width:1100px;margin:2rem auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif">
-  <h1 style="font-size:2rem;margin-bottom:0.5rem;">CryptoScout</h1>
-  <p style="color:#64748b;margin-bottom:1.5rem;">Top 100 prices (USD) cached every 30 minutes + optional AI shortlist (based on 1-year growth). Not financial advice.</p>
+<!-- Keep everything self-contained so it “just works” -->
 
-  <div style="display:flex;gap:0.6rem;align-items:center;margin-bottom:0.75rem;">
-    <button id="genReco" style="padding:.6rem 1rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Generate AI Picks</button>
-    <span id="recoHint" style="color:#64748b;font-size:.9rem;">Click to generate recommendations (no background calls).</span>
+<style>
+  /* ===== Design tokens ===== */
+  :root{
+    --bg: #0b1220;
+    --card: rgba(255,255,255,0.08);
+    --card-strong: rgba(255,255,255,0.12);
+    --text: #e5e7eb;
+    --muted: #9aa4b2;
+    --accent: #7cacf8;
+    --border: rgba(255,255,255,0.14);
+    --ring: rgba(124,172,248,.35);
+    --shadow: 0 10px 30px rgba(0,0,0,.3);
+    --success: #16a34a;
+    --danger: #ef4444;
+    --neutral: #94a3b8;
+    --radius: 14px;
+  }
+
+  @@media (prefers-color-scheme: light){
+    :root{
+      --bg: #f5f7fb;
+      --card: rgba(255,255,255,0.9);
+      --card-strong: rgba(255,255,255,0.98);
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #406bd6;
+      --border: #e2e8f0;
+      --ring: rgba(64,107,214,.25);
+      --shadow: 0 10px 25px rgba(2,6,23,.1);
+    }
+  }
+
+  /* ===== Page & background effects ===== */
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .bg-effects{
+    position: fixed; inset: 0; z-index: -1; pointer-events:none;
+    overflow:hidden;
+  }
+  /* Subtle grid */
+  .bg-effects::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at 50% -20%, black 40%, transparent 70%);
+  }
+  /* Animated aurora blobs */
+  .bg-effects::after{
+    content:"";
+    position:absolute; inset:-20%;
+    background:
+      radial-gradient(40% 35% at 20% 30%, rgba(124,172,248,.35), transparent 60%),
+      radial-gradient(40% 35% at 80% 70%, rgba(147,51,234,.25), transparent 60%),
+      radial-gradient(35% 30% at 60% 20%, rgba(34,197,94,.20), transparent 60%);
+    filter: blur(50px) saturate(110%);
+    animation: float 22s ease-in-out infinite alternate;
+  }
+  @@keyframes float{
+    0%{ transform: translate3d(0,0,0) scale(1);}
+    100%{ transform: translate3d(2%, -2%, 0) scale(1.05);}
+  }
+  @@media (prefers-reduced-motion: reduce){
+    .bg-effects::after{ animation:none }
+  }
+
+  .wrap{ max-width:1200px; margin: clamp(16px, 3vw, 28px) auto; padding: 0 16px;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom: 14px;
+  }
+  .brand h1{ margin:0; font-size: clamp(20px, 2.2vw, 28px); letter-spacing:.2px }
+  .brand p{ margin:.25rem 0 0 0; color: var(--muted); font-size: .95rem }
+
+  .source{
+    color: var(--text);
+    text-decoration:none;
+    border:1px solid var(--border);
+    background: linear-gradient(180deg, var(--card), var(--card-strong));
+    padding:.5rem .8rem; border-radius: 12px;
+    display:inline-flex; align-items:center; gap:.5rem;
+    box-shadow: var(--shadow);
+    transition: transform .15s ease, border-color .2s ease, box-shadow .2s ease;
+  }
+  .source:hover{ transform: translateY(-1px); border-color: var(--ring); box-shadow: 0 14px 35px rgba(124,172,248,.15); }
+
+  /* ===== Layout ===== */
+  .grid{
+    display:grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap: clamp(12px, 2vw, 18px);
+  }
+  @@media (max-width: 950px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .card{
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--card), var(--card-strong));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: var(--shadow);
+  }
+
+  .section-head{
+    padding:.9rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+  }
+
+  /* ===== Inputs & Buttons ===== */
+  .controls{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .input{
+    padding:.6rem .8rem; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text);
+    outline: none; min-width: 200px;
+  }
+  .input:focus{ border-color: var(--ring); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 40%, transparent); }
+  .btn{
+    padding:.6rem .9rem; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text); cursor:pointer;
+    transition: transform .06s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+    .btn-green {
+      background: var(--success);
+      color: #fff;
+      border-color: var(--success);
+    }
+    .btn-green:hover {
+      background: #15803d;
+      border-color: #15803d;
+    }
+  .btn:hover{ border-color: var(--ring); box-shadow: 0 8px 24px rgba(124,172,248,.12); background: rgba(124,172,248,.06); }
+  .btn:active{ transform: translateY(1px); }
+  .btn:disabled{ opacity:.6; cursor:default; transform:none; box-shadow:none; }
+
+  /* ===== Table ===== */
+  .table-wrap{ overflow:auto; border-top:1px solid var(--border); border-bottom:1px solid var(--border); border-radius: 12px; }
+  table{ width:100%; border-collapse: collapse; }
+  th, td{ padding: .7rem .8rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+  thead th{
+    position: sticky; top: 0; z-index: 1;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card) 40%, transparent), var(--card));
+    text-align:left; font-weight:600; color: var(--muted);
+    backdrop-filter: blur(6px);
+  }
+  tbody tr:hover{ background: color-mix(in srgb, var(--card) 70%, transparent); }
+  .num{ text-align:right }
+  .pct.pos{ color: var(--success) }
+  .pct.neg{ color: var(--danger) }
+  .pct.dim{ color: var(--neutral) }
+
+  /* ===== Pager ===== */
+  .pager{ display:flex; justify-content:space-between; align-items:center; padding: .7rem 0; }
+  .meta{ color: var(--muted); font-size: .95rem; }
+
+  /* ===== Chat ===== */
+  #chatLog{ padding:1rem; height: min(66vh, 650px); overflow:auto; display:flex; flex-direction:column; gap:.7rem; }
+  .msg{
+    max-width: 85%;
+    padding: .7rem .9rem;
+    border:1px solid var(--border);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.04));
+    box-shadow: var(--shadow);
+    white-space: pre-wrap;
+  }
+  .me{ align-self:flex-end; background: linear-gradient(180deg, rgba(124,172,248,.18), rgba(124,172,248,.12)); border-color: color-mix(in srgb, var(--ring) 45%, var(--border)); }
+  .bot{ align-self:flex-start; }
+  .chatInput{ display:flex; gap:.6rem; padding:.8rem; border-top:1px solid var(--border); }
+  .chatInput textarea{
+    flex:1; resize:vertical; min-height: 44px; max-height: 30vh;
+    color: var(--text); background: transparent; border:1px solid var(--border); border-radius: 12px; padding:.65rem .75rem;
+    outline:none;
+  }
+  .chatInput textarea:focus{ border-color: var(--ring); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 40%, transparent); }
+
+  /* ===== Sparklines ===== */
+  .spark{ width: 150px; height: 42px; }
+  @@media (max-width: 500px){ .spark{ width: 120px; } }
+
+  /* ===== Small utilities ===== */
+  .avatar{ width:22px; height:22px; border-radius:50%; object-fit:cover; }
+  .sr{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0; clip:rect(0 0 0 0); overflow:hidden; white-space:nowrap; }
+
+  /* ===== Scrollbar polish (WebKit) ===== */
+  *::-webkit-scrollbar{ height:10px; width:10px }
+  *::-webkit-scrollbar-thumb{ background: color-mix(in srgb, var(--text) 15%, transparent); border-radius: 10px; }
+
+  /* Shimmer keyframes for loading rows */
+  @@keyframes shimmer{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+</style>
+
+<div class="bg-effects" aria-hidden="true"></div>
+
+<section class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <h1>CryptoScout</h1>
+      <p>Top 100 prices (USD) cached every 30 minutes. Generate AI picks, then chat about them. Not financial advice.</p>
+    </div>
+    <a class="source" href="https://github.com/RayanBhatti/CryptoScout" target="_blank" rel="noopener" title="View source on GitHub">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.99 5.24.99 11.5c0 4.85 3.15 8.96 7.51 10.41.55.1.75-.24.75-.53 0-.26-.01-.95-.02-1.85-3.05.66-3.69-1.47-3.69-1.47-.5-1.27-1.22-1.6-1.22-1.6-.99-.68.07-.67.07-.67 1.1.08 1.68 1.13 1.68 1.13.97 1.66 2.54 1.18 3.16.9.1-.7.38-1.18.69-1.45-2.44-.28-5-1.22-5-5.45 0-1.2.43-2.18 1.13-2.95-.11-.28-.49-1.43.1-2.98 0 0 .93-.3 3.05 1.13.89-.25 1.85-.37 2.8-.37.95 0 1.9.12 2.8.37 2.11-1.43 3.04-1.13 3.04-1.13.59 1.55.21 2.7.1 2.98.7.77 1.13 1.75 1.13 2.95 0 4.24-2.57 5.16-5.02 5.44.39.34.73 1.02.73 2.06 0 1.49-.01 2.69-.01 3.06 0 .29.2.64.76.53 4.35-1.45 7.5-5.56 7.5-10.41C23.01 5.24 18.27.5 12 .5z"/></svg>
+      <span>Source</span>
+    </a>
   </div>
 
-  <div id="reco" style="padding:1rem;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:1rem;">
-    <em>No recommendation yet. Click “Generate AI Picks”.</em>
-  </div>
+  <div class="grid">
+    <!-- Left: Prices table -->
+    <div class="card">
+      <div class="section-head">
+        <div class="controls">
+          <input id="q" class="input" placeholder="Filter by name/symbol…" aria-label="Filter coins" />
+        </div>
+        <div class="controls">
+          <button id="refresh" class="btn">Refresh</button>
+          <button id="genReco" class="btn btn-green">Generate AI Picks</button>
+        </div>
+      </div>
 
-  <div style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0 1rem;">
-    <input id="q" placeholder="Filter by name/symbol…" style="flex:1;padding:.6rem .8rem;border:1px solid #cbd5e1;border-radius:10px;"/>
-    <button id="refresh" style="padding:.6rem 1rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Refresh</button>
-  </div>
+      <div class="table-wrap">
+        <table id="grid" aria-label="Top 100 crypto table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Coin</th>
+              <th class="num">Price</th>
+              <th class="num">1y %</th>
+              <th class="num">1y</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-  <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:12px;">
-    <table id="grid" style="width:100%;border-collapse:collapse;">
-      <thead style="background:#f8fafc;">
-        <tr>
-          <th style="text-align:left;padding:.7rem;border-bottom:1px solid #e2e8f0;">#</th>
-          <th style="text-align:left;padding:.7rem;border-bottom:1px solid #e2e8f0;">Coin</th>
-          <th style="text-align:right;padding:.7rem;border-bottom:1px solid #e2e8f0;">Price</th>
-          <th style="text-align:right;padding:.7rem;border-bottom:1px solid #e2e8f0;">1y %</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+      <div class="section-head" style="border-top:1px solid var(--border); border-bottom: none;">
+        <span id="pageInfo" class="meta"></span>
+        <div class="controls">
+          <button id="prev" class="btn">Previous</button>
+          <button id="next" class="btn">Next</button>
+        </div>
+      </div>
+    </div>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.8rem;">
-    <span id="pageInfo" style="color:#64748b;"></span>
-    <div style="display:flex;gap:.5rem;">
-      <button id="prev" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Previous</button>
-      <button id="next" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Next</button>
+    <!-- Right: Chat -->
+    <div class="card" style="display:flex; flex-direction:column;">
+      <div class="section-head" style="justify-content:flex-start; gap:.75rem;">
+        <span style="font-weight:600;">Chat about the latest picks</span>
+      </div>
+      <div id="chatLog" aria-live="polite"></div>
+      <div class="chatInput">
+        <label for="chatInput" class="sr">Message</label>
+        <textarea id="chatInput" rows="2" placeholder="Ask about the picks… (e.g., Why SOL over ETH?)"></textarea>
+        <button id="sendChat" class="btn">Send</button>
+      </div>
     </div>
   </div>
 </section>
 
 <script>
+/* ===== State ===== */
 let allCoins = [];
 let filteredCoins = [];
 let currentPage = 1;
 const pageSize = 10;
+const chat = []; // {role, content}
+const sparkCache = new Map();
 
+/* ===== Utils ===== */
+function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
+function pctClass(v){ if(v === null || v === undefined) return 'pct dim'; return v>=0 ? 'pct pos' : 'pct neg'; }
+
+function row(c){
+  const pct = c.priceChangePercentage1y ?? null;
+  return `<tr>
+    <td>${c.marketCapRank}</td>
+    <td style="display:flex; gap:.65rem; align-items:center;">
+      <img class="avatar" src="${c.image}" alt="${c.symbol}" />
+      <div>
+        <div style="font-weight:600">${c.name}</div>
+        <div style="color:var(--muted); font-size:.86rem">${c.symbol.toUpperCase()}</div>
+      </div>
+    </td>
+    <td class="num">$${fmt(c.currentPrice)}</td>
+    <td class="num ${pctClass(pct)}">${pct===null?'—':fmt(pct)+'%'}</td>
+    <td class="num"><div class="spark" data-id="${c.id}"></div></td>
+  </tr>`;
+}
+
+/* ===== Data calls ===== */
 async function fetchCoins(){
   const res = await fetch('/api/coins');
   if(!res.ok) throw new Error('Failed to load coins');
@@ -60,31 +313,25 @@ async function fetchReco(take=3){
   if(!res.ok) throw new Error('Failed to generate recommendation');
   return await res.json();
 }
-function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
 
-function row(c){
-  const pct = c.priceChangePercentage1y ?? null;
-  const color = pct===null ? '#64748b' : (pct>=0 ? '#16a34a' : '#dc2626');
-  return `<tr>
-    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;">${c.marketCapRank}</td>
-    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;display:flex;gap:.6rem;align-items:center;">
-      <img src="${c.image}" alt="${c.symbol}" style="width:20px;height:20px;border-radius:50%"/>
-      <div><div style="font-weight:600">${c.name}</div><div style="color:#64748b;font-size:.85rem">${c.symbol.toUpperCase()}</div></div>
-    </td>
-    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right">$${fmt(c.currentPrice)}</td>
-    <td style="padding:.6rem;border-bottom:1px solid #f1f5f9;text-align:right;color:${color}">${pct===null?'—':fmt(pct)+'%'}</td>
-  </tr>`;
-}
-
+/* ===== Render ===== */
 function renderTable(){
   const start = (currentPage - 1) * pageSize;
   const page = filteredCoins.slice(start, start + pageSize);
-  document.querySelector('#grid tbody').innerHTML = page.map(row).join('');
+  const tbody = document.querySelector('#grid tbody');
+
+  if(page.length===0){
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:1rem;color:var(--muted)">No results.</td></tr>`;
+  }else{
+    tbody.innerHTML = page.map(row).join('');
+  }
 
   const totalPages = Math.max(1, Math.ceil(filteredCoins.length / pageSize));
   document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${filteredCoins.length} coins)`;
   document.getElementById('prev').disabled = currentPage <= 1;
   document.getElementById('next').disabled = currentPage >= totalPages;
+
+  loadSparklinesForPage();
 }
 
 function applyFilter(){
@@ -94,54 +341,141 @@ function applyFilter(){
   renderTable();
 }
 
-function renderReco(r){
-  const el = document.getElementById('reco');
-  if(!r || !r.top || r.top.length===0){ el.innerHTML = '<em>No picks returned. Try again.</em>'; return; }
-  const items = r.top.map(p =>
-    `<li style="margin:.25rem 0;"><strong>${p.symbol.toUpperCase()}</strong> — weight ${(p.weight*100).toFixed(0)}%<br><span style="color:#475569">${p.why}</span></li>`
-  ).join('');
-  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
-    <div>
-      <h3 style="margin:0 0 .25rem 0;font-size:1.1rem;">AI short-list to consider</h3>
-      <ul style="padding-left:1rem;">${items}</ul>
-      <div style="color:#64748b;margin-top:.4rem;font-size:.9rem;">${r.notes}</div>
-    </div>
-    <button id="reroll" style="padding:.5rem .8rem;border-radius:10px;border:1px solid #cbd5e1;background:white;cursor:pointer">Re-run</button>
-  </div>`;
-  document.getElementById('reroll').onclick = generateReco;
-}
-
-async function generateReco(){
-  const btn = document.getElementById('genReco');
-  const el = document.getElementById('reco');
-  const hint = document.getElementById('recoHint');
-  try {
-    btn.disabled = true;
-    hint.textContent = 'Generating…';
-    el.innerHTML = 'Thinking…';
-    const r = await fetchReco(3);
-    renderReco(r);
-    hint.textContent = 'Done.';
-  } catch (e) {
-    el.innerHTML = `<span style="color:#dc2626">Failed to generate recommendation. ${e?.message ?? ''}</span>`;
-    hint.textContent = 'Click to try again.';
-  } finally {
-    btn.disabled = false;
-  }
-}
-
 async function refresh(){
+  const tbody = document.querySelector('#grid tbody');
+  tbody.innerHTML = Array.from({length:10}).map(()=>`
+    <tr>
+      <td colspan="5">
+        <div style="height:38px; border-radius:10px; background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.16), rgba(255,255,255,.08)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite;"></div>
+      </td>
+    </tr>
+  `).join('');
   try {
     allCoins = await fetchCoins();
     filteredCoins = allCoins.slice();
     currentPage = 1;
     renderTable();
   } catch (e) {
-    document.querySelector('#grid tbody').innerHTML = `<tr><td colspan="4" style="padding:1rem;color:#dc2626;">Failed to load coins. ${e?.message ?? ''}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:1rem;color:#ef4444;">Failed to load coins. ${e?.message ?? ''}</td></tr>`;
   }
 }
 
-// events
+/* ===== Chat helpers ===== */
+function pushMsg(role, content){
+  chat.push({ role, content });
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'me' : 'bot');
+  div.textContent = content;
+  const log = document.getElementById('chatLog');
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+function pushUser(text){ pushMsg('user', text); }
+function pushBot(text){ pushMsg('assistant', text); }
+
+function formatRecoForChat(r){
+  if(!r || !r.top || !r.top.length) return "No picks returned.";
+  const lines = r.top.map((p,i)=> `${i+1}) ${p.symbol.toUpperCase()} — ${(p.weight*100).toFixed(0)}% — ${p.why}`);
+  const notes = r.notes ? `\nNotes: ${r.notes}` : "";
+  return `Here are my latest picks:\n${lines.join("\n")}${notes}\n\nAsk me anything about these choices, risks, or alternatives.`;
+}
+
+/* Generate picks -> ONLY post into chat */
+async function generateReco(){
+  const btn = document.getElementById('genReco');
+  try {
+    btn.disabled = true;
+    pushBot('Generating a fresh shortlist…');
+    const r = await fetchReco(3);
+    document.getElementById('chatLog').lastChild.textContent = formatRecoForChat(r);
+  } catch (e) {
+    document.getElementById('chatLog').lastChild.textContent = 'Sorry, I couldn’t generate picks just now. Try again.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ===== Chat API ===== */
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const send = document.getElementById('sendChat');
+  const text = input.value.trim();
+  if(!text) return;
+
+  pushUser(text);
+  input.value = '';
+  send.disabled = true;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chat })
+    });
+    const data = await res.json();
+    const reply = (data?.messages?.[0]?.content) ?? '(no reply)';
+    pushBot(reply);
+  } catch (e) {
+    pushBot('Sorry, something went wrong: ' + (e?.message ?? ''));
+  } finally {
+    send.disabled = false;
+  }
+}
+
+/* ===== Sparklines ===== */
+async function loadSparklinesForPage() {
+  const holders = Array.from(document.querySelectorAll('.spark'));
+  for (let i = 0; i < holders.length; i++) {
+    const el = holders[i];
+    const id = el.getAttribute('data-id');
+    if (!id) continue;
+
+    if (sparkCache.has(id)) {
+      drawSparkline(el, sparkCache.get(id));
+      continue;
+    }
+
+    try {
+      await new Promise(r => setTimeout(r, i * 80)); // gentle stagger
+      const res = await fetch(`/api/sparkline?id=${encodeURIComponent(id)}&days=365`);
+      if (!res.ok) throw new Error('sparkline fetch failed');
+      const arr = await res.json(); // number[]
+      sparkCache.set(id, arr);
+      drawSparkline(el, arr);
+    } catch (e) {
+      el.innerHTML = '<span style="color:var(--neutral);font-size:.85rem">n/a</span>';
+    }
+  }
+}
+
+function drawSparkline(holder, values) {
+  const w = holder.clientWidth || 150;
+  const h = holder.clientHeight || 42;
+
+  if (!Array.isArray(values) || values.length < 2) {
+    holder.innerHTML = '<span style="color:var(--neutral);font-size:.85rem">n/a</span>';
+    return;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = (max - min) || 1;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * (w - 2) + 1;
+    const y = h - 1 - ((v - min) / span) * (h - 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  const rising = values[values.length - 1] >= values[0];
+  const stroke = rising ? '#16a34a' : '#ef4444';
+
+  holder.innerHTML = `
+    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="1y sparkline">
+      <polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="2" vector-effect="non-scaling-stroke" />
+    </svg>`;
+}
+
+/* ===== Events ===== */
 document.getElementById('q').addEventListener('input', applyFilter);
 document.getElementById('refresh').addEventListener('click', refresh);
 document.getElementById('prev').addEventListener('click', () => { if (currentPage>1){ currentPage--; renderTable(); } });
@@ -150,7 +484,11 @@ document.getElementById('next').addEventListener('click', () => {
   if (currentPage < totalPages){ currentPage++; renderTable(); }
 });
 document.getElementById('genReco').addEventListener('click', generateReco);
+document.getElementById('sendChat').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
 
-// initial load: coins only (no recommendation call)
+/* ===== Initial load ===== */
 refresh();
 </script>
