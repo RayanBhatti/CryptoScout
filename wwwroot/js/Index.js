@@ -66,7 +66,7 @@ function renderTable(){
   document.getElementById('prev').disabled = currentPage <= 1;
   document.getElementById('next').disabled = currentPage >= totalPages;
 
-  loadSparklinesForPage();
+  loadSparklinesForPage(); // concurrent version
 }
 
 async function refresh(){
@@ -115,7 +115,6 @@ async function generateReco(){
     const r = await fetchReco(3);
     document.getElementById('chatLog').lastChild.textContent = formatRecoForChat(r);
 
-    // Mobile nicety: scroll to chat after picks are ready
     if (window.innerWidth <= 640) {
       const chatCard = document.querySelector('.chat-card');
       if (chatCard) chatCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -154,30 +153,32 @@ async function sendChat(){
   }
 }
 
-/* ===== Sparklines ===== */
+/* ===== Sparklines (CONCURRENT) ===== */
 async function loadSparklinesForPage() {
   const holders = Array.from(document.querySelectorAll('.spark'));
-  for (let i = 0; i < holders.length; i++) {
-    const el = holders[i];
+  const tasks = [];
+
+  for (const el of holders) {
     const id = el.getAttribute('data-id');
     if (!id) continue;
 
+    // If cached, draw immediately and skip fetch.
     if (sparkCache.has(id)) {
       drawSparkline(el, sparkCache.get(id));
       continue;
     }
 
-    try {
-      await new Promise(r => setTimeout(r, i * 80));
-      const res = await fetch(`/api/sparkline?id=${encodeURIComponent(id)}&days=365`);
-      if (!res.ok) throw new Error('sparkline fetch failed');
-      const arr = await res.json();
-      sparkCache.set(id, arr);
-      drawSparkline(el, arr);
-    } catch {
-      el.innerHTML = '<span style="color:var(--neutral);font-size:.85rem">n/a</span>';
-    }
+    // Fetch concurrently (no artificial delay)
+    const p = fetch(`/api/sparkline?id=${encodeURIComponent(id)}&days=365`)
+      .then(res => { if (!res.ok) throw new Error('sparkline fetch failed'); return res.json(); })
+      .then(arr => { sparkCache.set(id, arr); drawSparkline(el, arr); })
+      .catch(() => { el.innerHTML = '<span style="color:var(--neutral);font-size:.85rem">n/a</span>'; });
+
+    tasks.push(p);
   }
+
+  // Wait for all in-flight fetches to settle (doesn't block rendering)
+  if (tasks.length) await Promise.allSettled(tasks);
 }
 
 function drawSparkline(holder, values) {
