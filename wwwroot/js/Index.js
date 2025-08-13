@@ -11,6 +11,14 @@ function fmt(n){ return Number(n).toLocaleString(undefined,{maximumFractionDigit
 function pctClass(v){ if(v === null || v === undefined) return 'pct dim'; return v>=0 ? 'pct pos' : 'pct neg'; }
 function pctText(v){ return v===null || v===undefined ? '—' : (Math.round(v*100)/100) + '%'; }
 
+(function setFavicon() {
+  const el = document.querySelector('link[rel="icon"]') || document.createElement('link');
+  el.rel = 'icon';
+  el.type = 'image/svg+xml';
+  el.href = '/favicon-green-dollar.svg';
+  if (!el.parentNode) document.head.appendChild(el);
+})();
+
 function row(c){
   const pct1y = c.priceChangePercentage1y ?? null;
   return `<tr>
